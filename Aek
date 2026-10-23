@@ -1,0 +1,468 @@
+-- =================================================================
+-- ชื่อสคริปต์: เอกชอบสร้างสคริป
+-- UI Framework: Rayfield Library
+-- =================================================================
+
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+   Name = "เอกชอบสร้างสคริป",
+   LoadingTitle = "กำลังโหลดระบบ AEKHUB...",
+   LoadingSubtitle = "โดย AI GIMINI",
+   ConfigurationSaving = {
+      Enabled = false
+   },
+   Discord = {
+      Enabled = false
+   },
+   KeySystem = false
+})
+
+-- =================================================================
+-- ตัวแปรระบบหลัก (Main Variables)
+-- =================================================================
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+
+local FlySpeed = 50
+local IsFlying = false
+local IsNoclip = false
+local FlyBodyVelocity, FlyBodyGyro
+local CurrentLanguage = "TH" -- TH, EN, FR
+
+-- =================================================================
+-- ระบบฟังก์ชันพื้นฐาน (Player Utilities)
+-- =================================================================
+
+-- 1. บิน (Fly)
+local function ToggleFly(state)
+    IsFlying = state
+    local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    
+    if IsFlying and hrp then
+        FlyBodyVelocity = Instance.new("BodyVelocity")
+        FlyBodyVelocity.MaxForce = Vector3.new(1e9, 1e9, 1e9)
+        FlyBodyVelocity.Velocity = Vector3.zero
+        FlyBodyVelocity.Parent = hrp
+
+        FlyBodyGyro = Instance.new("BodyGyro")
+        FlyBodyGyro.MaxTorque = Vector3.new(1e9, 1e9, 1e9)
+        FlyBodyGyro.CFrame = hrp.CFrame
+        FlyBodyGyro.Parent = hrp
+
+        task.spawn(function()
+            while IsFlying and character and hrp do
+                local camera = workspace.CurrentCamera
+                local moveDir = Vector3.zero
+                
+                if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + camera.CFrame.LookVector end
+                if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - camera.CFrame.LookVector end
+                if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + camera.CFrame.RightVector end
+                if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - camera.CFrame.RightVector end
+                if UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveDir = moveDir + Vector3.new(0, 1, 0) end
+                if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then moveDir = moveDir - Vector3.new(0, 1, 0) end
+
+                FlyBodyVelocity.Velocity = moveDir * FlySpeed
+                FlyBodyGyro.CFrame = camera.CFrame
+                RunService.RenderStepped:Wait()
+            end
+        end)
+    else
+        if FlyBodyVelocity then FlyBodyVelocity:Destroy() end
+        if FlyBodyGyro then FlyBodyGyro:Destroy() end
+    end
+end
+
+-- 2. ทะลุ (Noclip)
+RunService.Stepped:Connect(function()
+    if IsNoclip and LocalPlayer.Character then
+        for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
+            end
+        end
+    end
+end)
+
+-- 3. ล่องหน (Invisibility)
+local function SetInvisible(state)
+    local character = LocalPlayer.Character
+    if character then
+        for _, part in pairs(character:GetDescendants()) do
+            if part:IsA("BasePart") or part:IsA("Decal") then
+                part.Transparency = state and 1 or 0
+            end
+        end
+    end
+end
+
+-- 4. วาร์ป (Teleport Click)
+local function TeleportToMouse()
+    local mouse = LocalPlayer:GetMouse()
+    if mouse.Hit and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(mouse.Hit.Position + Vector3.new(0, 3, 0))
+    end
+end
+
+-- =================================================================
+-- GUI ระบบแชท AI AEKHUB (หน้าจอใหญ่ + อลังการ + เลือกสี/ภาษา)
+-- =================================================================
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "AIAEKHUB_Gui"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+-- เฟรมหลัก (เกือบเต็มหน้าจอ)
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0.85, 0, 0.85, 0)
+MainFrame.Position = UDim2.new(0.075, 0, 0.075, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+MainFrame.BorderSizePixel = 0
+MainFrame.Visible = false
+MainFrame.Parent = ScreenGui
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 15)
+UICorner.Parent = MainFrame
+
+local UIStroke = Instance.new("UIStroke")
+UIStroke.Thickness = 3
+UIStroke.Color = Color3.fromRGB(0, 255, 127) -- สีเขียวเรืองแสงเริ่มต้น
+UIStroke.Parent = MainFrame
+
+-- แถบหัวข้อ (Header)
+local Header = Instance.new("Frame")
+Header.Size = UDim2.new(1, 0, 0.08, 0)
+Header.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+Header.Parent = MainFrame
+
+local HeaderCorner = Instance.new("UICorner")
+HeaderCorner.CornerRadius = UDim.new(0, 15)
+HeaderCorner.Parent = Header
+
+local TitleText = Instance.new("TextLabel")
+TitleText.Size = UDim2.new(0.5, 0, 1, 0)
+TitleText.Position = UDim2.new(0.02, 0, 0, 0)
+TitleText.BackgroundTransparency = 1
+TitleText.Text = "🤖 AI AEKHUB - Interactive Assistant"
+TitleText.TextColor3 = Color3.fromRGB(0, 255, 127)
+TitleText.TextScaled = true
+TitleText.Font = Enum.Font.GothamBold
+TitleText.TextXAlignment = Enum.TextXAlignment.Left
+TitleText.Parent = Header
+
+-- ปุ่มปิด
+local CloseButton = Instance.new("TextButton")
+CloseButton.Size = UDim2.new(0.05, 0, 0.7, 0)
+CloseButton.Position = UDim2.new(0.93, 0, 0.15, 0)
+CloseButton.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+CloseButton.Text = "X"
+CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseButton.TextScaled = true
+CloseButton.Font = Enum.Font.GothamBold
+CloseButton.Parent = Header
+
+local CloseCorner = Instance.new("UICorner")
+CloseCorner.CornerRadius = UDim.new(0, 8)
+CloseCorner.Parent = CloseButton
+
+CloseButton.MouseButton1Click:Connect(function()
+    MainFrame.Visible = false
+end)
+
+-- รูปการ์ตูนประดับ (Decorations)
+local function CreateAvatar(assetId, pos, size)
+    local img = Instance.new("ImageLabel")
+    img.Size = size
+    img.Position = pos
+    img.BackgroundTransparency = 1
+    img.Image = assetId
+    img.Parent = MainFrame
+    return img
+end
+
+CreateAvatar("rbxassetid://6023426926", UDim2.new(0.01, 0, 0.1, 0), UDim2.new(0.12, 0, 0.25, 0)) -- การ์ตูน ซ้ายบน
+CreateAvatar("rbxassetid://6023426926", UDim2.new(0.87, 0, 0.1, 0), UDim2.new(0.12, 0, 0.25, 0)) -- การ์ตูน ขวาบน
+CreateAvatar("rbxassetid://6023426926", UDim2.new(0.01, 0, 0.7, 0), UDim2.new(0.12, 0, 0.25, 0)) -- การ์ตูน ซ้ายล่าง
+
+-- พื้นที่แสดงข้อความแชท (Chat Display)
+local ChatScroll = Instance.new("ScrollingFrame")
+ChatScroll.Size = UDim2.new(0.72, 0, 0.68, 0)
+ChatScroll.Position = UDim2.new(0.14, 0, 0.10, 0)
+ChatScroll.BackgroundColor3 = Color3.fromRGB(10, 10, 15)
+ChatScroll.BorderSizePixel = 0
+ChatScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+ChatScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+ChatScroll.Parent = MainFrame
+
+local ChatUIList = Instance.new("UIListLayout")
+ChatUIList.SortOrder = Enum.SortOrder.LayoutOrder
+ChatUIList.Padding = UDim.new(0, 8)
+ChatUIList.Parent = ChatScroll
+
+-- ช่องกรอกข้อความ (Input Box)
+local InputBox = Instance.new("TextBox")
+InputBox.Size = UDim2.new(0.58, 0, 0.08, 0)
+InputBox.Position = UDim2.new(0.14, 0, 0.80, 0)
+InputBox.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+InputBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+InputBox.PlaceholderText = "พิมพ์คำถามของคุณที่นี่..."
+InputBox.TextScaled = true
+InputBox.Font = Enum.Font.Gotham
+InputBox.Parent = MainFrame
+
+local InputCorner = Instance.new("UICorner")
+InputCorner.CornerRadius = UDim.new(0, 8)
+InputCorner.Parent = InputBox
+
+-- ปุ่มส่ง (Send Button)
+local SendButton = Instance.new("TextButton")
+SendButton.Size = UDim2.new(0.12, 0, 0.08, 0)
+SendButton.Position = UDim2.new(0.74, 0, 0.80, 0)
+SendButton.BackgroundColor3 = Color3.fromRGB(0, 255, 127)
+SendButton.Text = "ส่ง (Send)"
+SendButton.TextColor3 = Color3.fromRGB(0, 0, 0)
+SendButton.TextScaled = true
+SendButton.Font = Enum.Font.GothamBold
+SendButton.Parent = MainFrame
+
+local SendCorner = Instance.new("UICorner")
+SendCorner.CornerRadius = UDim.new(0, 8)
+SendCorner.Parent = SendButton
+
+-- แถบปรับแต่ง (Color & Language Selectors)
+local ControlFrame = Instance.new("Frame")
+ControlFrame.Size = UDim2.new(0.72, 0, 0.08, 0)
+ControlFrame.Position = UDim2.new(0.14, 0, 0.90, 0)
+ControlFrame.BackgroundTransparency = 1
+ControlFrame.Parent = MainFrame
+
+-- ฟังก์ชันเปลี่ยนสีข้อความและ UI
+local CurrentThemeColor = Color3.fromRGB(0, 255, 127) -- สีเขียวเรืองแสง
+
+local function SetThemeColor(color)
+    CurrentThemeColor = color
+    UIStroke.Color = color
+    TitleText.TextColor3 = color
+    SendButton.BackgroundColor3 = color
+end
+
+local function CreateColorBtn(name, color, pos)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0.1, 0, 0.8, 0)
+    btn.Position = pos
+    btn.BackgroundColor3 = color
+    btn.Text = name
+    btn.TextColor3 = Color3.fromRGB(0, 0, 0)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextScaled = true
+    btn.Parent = ControlFrame
+    
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, 5)
+    c.Parent = btn
+
+    btn.MouseButton1Click:Connect(function()
+        SetThemeColor(color)
+    end)
+end
+
+CreateColorBtn("เขียว", Color3.fromRGB(0, 255, 127), UDim2.new(0, 0, 0.1, 0))
+CreateColorBtn("แดง", Color3.fromRGB(255, 50, 50), UDim2.new(0.12, 0, 0.1, 0))
+CreateColorBtn("ม่วง", Color3.fromRGB(180, 50, 255), UDim2.new(0.24, 0, 0.1, 0))
+CreateColorBtn("ฟ้า", Color3.fromRGB(50, 200, 255), UDim2.new(0.36, 0, 0.1, 0))
+CreateColorBtn("ขาว", Color3.fromRGB(255, 255, 255), UDim2.new(0.48, 0, 0.1, 0))
+
+-- ฟังก์ชันเปลี่ยนภาษา
+local function CreateLangBtn(name, langCode, pos)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0.12, 0, 0.8, 0)
+    btn.Position = pos
+    btn.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
+    btn.Text = name
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextScaled = true
+    btn.Parent = ControlFrame
+
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, 5)
+    c.Parent = btn
+
+    btn.MouseButton1Click:Connect(function()
+        CurrentLanguage = langCode
+        if langCode == "TH" then
+            InputBox.PlaceholderText = "พิมพ์คำถามของคุณที่นี่..."
+        elseif langCode == "EN" then
+            InputBox.PlaceholderText = "Type your question here..."
+        elseif langCode == "FR" then
+            InputBox.PlaceholderText = "Écrivez votre question ici..."
+        end
+    end)
+end
+
+CreateLangBtn("ไทย", "TH", UDim2.new(0.62, 0, 0.1, 0))
+CreateLangBtn("EN", "EN", UDim2.new(0.75, 0, 0.1, 0))
+CreateLangBtn("FR", "FR", UDim2.new(0.88, 0, 0.1, 0))
+
+-- ฟังก์ชันเพิ่มข้อความในแชท
+local function AddChatMessage(sender, text, color)
+    local msgLabel = Instance.new("TextLabel")
+    msgLabel.Size = UDim2.new(0.98, 0, 0, 0)
+    msgLabel.AutomaticSize = Enum.AutomaticSize.Y
+    msgLabel.BackgroundTransparency = 1
+    msgLabel.Text = "[" .. sender .. "]: " .. text
+    msgLabel.TextColor3 = color
+    msgLabel.TextSize = 18
+    msgLabel.Font = Enum.Font.Gotham
+    msgLabel.TextWrapped = true
+    msgLabel.TextXAlignment = Enum.TextXAlignment.Left
+    msgLabel.Parent = ChatScroll
+    
+    task.wait(0.05)
+    ChatScroll.CanvasPosition = Vector2.new(0, ChatScroll.AbsoluteCanvasSize.Y)
+end
+
+-- =================================================================
+-- สมองปัญญาประดิษฐ์ (AI AEKHUB Logic)
+-- =================================================================
+local function ProcessAIResponse(question)
+    local q = string.lower(question)
+    
+    -- ภาษาไทย (TH)
+    if CurrentLanguage == "TH" then
+        if string.find(q, "มีฟังชั่นไรบ้าง") or string.find(q, "มีฟังก์ชั่นไรบ้าง") or string.find(q, "ทำอะไรได้บ้าง") then
+            return "มีตามนี้เลยครับ บิน วิ่ง ล่องหน ทะลุ วาร์ป และ แชทAi ครับ"
+        elseif string.find(q, "บิน") then
+            return "ระบบบินสามารถเปิด-ปิดได้ที่เมนู Rayfield และปรับความเร็วการบินได้ครับ"
+        elseif string.find(q, "วิ่ง") or string.find(q, "ความเร็ว") then
+            return "ระบบวิ่งเร็วสามารถปรับความเร็ว WalkSpeed ของตัวละครได้ทันทีครับ"
+        elseif string.find(q, "วาร์ป") then
+            return "ระบบวาร์ปจะย้ายตัวละครไปยังตำแหน่งของเมาส์ทันทีที่กดปุ่มวาร์ปครับ"
+        elseif string.find(q, "ใครสร้าง") or string.find(q, "ผู้พัฒนา") then
+            return "สคริปต์นี้สร้างโดย เอก (เอกชอบสร้างสคริป) ร่วมกับ AI GIMINI ครับ"
+        else
+            return "AI AEKHUB ยินดีให้บริการครับ! ตอบได้ทุกคำถาม เกี่ยวกับสคริปต์นี้สั่งการได้เลยครับ (ระบบรองรับทุกแมพ)"
+        end
+
+    -- ภาษาอังกฤษ (EN)
+    elseif CurrentLanguage == "EN" then
+        if string.find(q, "function") or string.find(q, "feature") or string.find(q, "what can you do") then
+            return "Available features: Fly, Speed, Invisibility, Noclip, Teleport, and AI Chat."
+        else
+            return "AI AEKHUB is ready to assist you with any questions regarding this script!"
+        end
+
+    -- ภาษาฝรั่งเศส (FR)
+    elseif CurrentLanguage == "FR" then
+        if string.find(q, "fonction") or string.find(q, "que peux-tu faire") then
+            return "Fonctionnalités disponibles : Voler, Vitesse, Invisibilité, Traverser les murs, Téléportation et Chat AI."
+        else
+            return "AI AEKHUB est à votre service pour répondre à toutes vos questions !"
+        end
+    end
+end
+
+local function SendMessage()
+    local text = InputBox.Text
+    if text ~= "" then
+        AddChatMessage("เอก (คุณ)", text, Color3.fromRGB(255, 255, 255))
+        InputBox.Text = ""
+        
+        task.wait(0.3)
+        local response = ProcessAIResponse(text)
+        AddChatMessage("AI AEKHUB", response, CurrentThemeColor)
+    end
+end
+
+SendButton.MouseButton1Click:Connect(SendMessage)
+InputBox.FocusLost:Connect(function(enterPressed)
+    if enterPressed then
+        SendMessage()
+    end
+end)
+
+-- =================================================================
+-- สร้างเมนู Rayfield (Tabs & Controls)
+-- =================================================================
+
+local MainTab = Window:CreateTab("ฟังชั่นหลัก", 4483362458)
+
+-- 1. บิน
+MainTab:CreateToggle({
+   Name = "บิน (Fly)",
+   CurrentValue = false,
+   Callback = function(Value)
+      ToggleFly(Value)
+   end,
+})
+
+MainTab:CreateSlider({
+   Name = "ความเร็วในการบิน (Fly Speed)",
+   Range = {10, 300},
+   Increment = 5,
+   Suffix = "Speed",
+   CurrentValue = 50,
+   Callback = function(Value)
+      FlySpeed = Value
+   end,
+})
+
+-- 2. วิ่งเร็ว
+MainTab:CreateSlider({
+   Name = "วิ่งเร็ว (WalkSpeed)",
+   Range = {16, 250},
+   Increment = 1,
+   Suffix = "Speed",
+   CurrentValue = 16,
+   Callback = function(Value)
+      if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+          LocalPlayer.Character.Humanoid.WalkSpeed = Value
+      end
+   end,
+})
+
+-- 3. วาร์ป
+MainTab:CreateButton({
+   Name = "วาร์ปไปตำแหน่งเมาส์ (Teleport to Mouse)",
+   Callback = function()
+      TeleportToMouse()
+   end,
+})
+
+-- 4. ล่องหน
+MainTab:CreateToggle({
+   Name = "ล่องหน (Invisibility)",
+   CurrentValue = false,
+   Callback = function(Value)
+      SetInvisible(Value)
+   end,
+})
+
+-- 5. ทะลุ
+MainTab:CreateToggle({
+   Name = "ทะลุ (Noclip)",
+   CurrentValue = false,
+   Callback = function(Value)
+      IsNoclip = Value
+   end,
+})
+
+-- 6. แชทคุยกับ Ai
+MainTab:CreateButton({
+   Name = "แชทคุยกับ Ai (AI AEKHUB Chat)",
+   Callback = function()
+      MainFrame.Visible = true
+   end,
+})
+
+Rayfield:Notify({
+   Title = "เอกชอบสร้างสคริป",
+   Content = "โหลดระบบสำเร็จแล้ว พร้อมใช้งานทุกแมพ!",
+   Duration = 5,
+   Image = 4483362458,
+})
